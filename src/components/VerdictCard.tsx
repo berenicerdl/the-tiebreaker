@@ -1,5 +1,15 @@
 import React, { useState } from 'react';
-import { Award, HelpCircle, ShieldAlert, CheckCircle2, Coins, Sparkles, ArrowRight, Check } from 'lucide-react';
+import {
+  Award,
+  HelpCircle,
+  ShieldAlert,
+  CheckCircle2,
+  Coins,
+  Sparkles,
+  ArrowRight,
+  Check,
+  Calendar,
+} from 'lucide-react';
 import { DecisionAnalysis } from '../types';
 import { TranslationStrings } from '../data/translations';
 
@@ -19,18 +29,18 @@ export const VerdictCard: React.FC<VerdictCardProps> = ({
   const { tiebreakerVerdict, options } = analysis;
   const [isFlipping, setIsFlipping] = useState(false);
   const [coinResult, setCoinResult] = useState<string | null>(null);
+  const [completedSteps, setCompletedSteps] = useState<number[]>([]);
 
   const handleFlipCoin = () => {
     setIsFlipping(true);
     setCoinResult(null);
 
     setTimeout(() => {
-      // Pick random option among the options
       const randomIdx = Math.floor(Math.random() * options.length);
       const chosen = options[randomIdx];
       setCoinResult(chosen.name);
       setIsFlipping(false);
-    }, 1200);
+    }, 900);
   };
 
   const handleCommitChoice = (optionId: string) => {
@@ -41,53 +51,83 @@ export const VerdictCard: React.FC<VerdictCardProps> = ({
     });
   };
 
+  const handleUndoCommitment = () => {
+    onUpdateAnalysis({
+      ...analysis,
+      chosenOptionId: undefined,
+      isDecided: false,
+    });
+  };
+
+  const handleToggleStep = (stepIdx: number) => {
+    if (completedSteps.includes(stepIdx)) {
+      setCompletedSteps(completedSteps.filter((s) => s !== stepIdx));
+    } else {
+      setCompletedSteps([...completedSteps, stepIdx]);
+    }
+  };
+
+  const chosenOption = options.find((o) => o.id === analysis.chosenOptionId);
+
   return (
     <div className="space-y-6">
-      {/* Main Recommended Verdict Banner */}
+      {/* Executive Verdict Hero Card */}
       <div
         id="verdict-banner"
-        className="relative overflow-hidden rounded-2xl border border-amber-300 bg-gradient-to-br from-amber-500/10 via-amber-100/50 to-stone-50 p-6 shadow-sm sm:p-8"
+        className="rounded-2xl border border-[#2c284f] bg-[#1e1c35] p-6 sm:p-7 shadow-xl shadow-black/20"
       >
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-600 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-white shadow-2xs">
-              <Award className="h-3.5 w-3.5" />
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between border-b border-[#2a2649] pb-5">
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600/20 to-fuchsia-600/20 border border-violet-500/30 px-3 py-1 text-xs font-bold text-violet-300 uppercase tracking-wider">
+              <Award className="h-3.5 w-3.5 text-fuchsia-400" />
               <span>{t.verdictTitle}</span>
             </div>
-            <h2 className="mt-3 font-serif text-2xl font-bold tracking-tight text-stone-950 sm:text-3xl">
+
+            <h2 className="font-display text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
               {tiebreakerVerdict.verdictHeadline}
             </h2>
-            <div className="mt-2 flex items-center gap-2">
-              <span className="text-xs font-medium text-stone-500">
-                {language === 'es' ? 'Opción Recomendada:' : 'Recommended Path:'}
+
+            <div className="flex items-center gap-2 pt-1">
+              <span className="text-xs text-[#8e8aa8] font-medium">
+                {language === 'es' ? 'Veredicto sugerido:' : 'Tiebreaker Path:'}
               </span>
-              <span className="rounded-md bg-stone-900 px-2.5 py-0.5 text-xs font-bold text-amber-300">
+              <span className="rounded-xl border border-violet-500/40 bg-[#28224c] px-3 py-1 text-xs font-bold text-violet-200">
                 {tiebreakerVerdict.recommendedOptionName}
               </span>
             </div>
           </div>
 
-          {/* Commitment status button */}
+          {/* Commitment Action Control */}
           <div className="shrink-0">
             {analysis.isDecided ? (
-              <div className="flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 px-3.5 py-2 text-xs font-semibold text-emerald-800">
-                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                <span>
-                  {t.decidedBadge}: {options.find((o) => o.id === analysis.chosenOptionId)?.name || tiebreakerVerdict.recommendedOptionName}
-                </span>
+              <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/30 p-3.5 text-right space-y-1">
+                <div className="flex items-center justify-end gap-1.5 text-xs font-bold text-emerald-400">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                  <span>{t.decidedBadge}</span>
+                </div>
+                <p className="text-xs text-white font-bold">
+                  {chosenOption?.name || tiebreakerVerdict.recommendedOptionName}
+                </p>
+                <button
+                  type="button"
+                  onClick={handleUndoCommitment}
+                  className="text-[11px] text-[#8e8aa8] hover:text-white underline transition"
+                >
+                  {t.undoSelection}
+                </button>
               </div>
             ) : (
-              <div className="rounded-xl border border-stone-200/90 bg-white/90 p-3 shadow-2xs">
-                <span className="block text-[11px] font-semibold text-stone-600">
+              <div className="rounded-xl border border-[#2b274c] bg-[#16142a] p-3 space-y-2">
+                <span className="block text-[11px] font-bold text-[#9b97b6]">
                   {t.selectWinnerPrompt}
                 </span>
-                <div className="mt-2 flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap gap-1.5">
                   {options.map((opt) => (
                     <button
                       key={opt.id}
                       type="button"
                       onClick={() => handleCommitChoice(opt.id)}
-                      className="rounded-lg border border-stone-300 bg-stone-50 px-2.5 py-1 text-xs font-semibold text-stone-800 transition hover:border-amber-600 hover:bg-amber-600 hover:text-white"
+                      className="rounded-lg border border-[#322d57] bg-[#1f1c39] px-2.5 py-1 text-xs font-bold text-white transition hover:border-violet-500 hover:bg-gradient-to-r hover:from-violet-600 hover:to-fuchsia-600"
                     >
                       {opt.name}
                     </button>
@@ -98,79 +138,83 @@ export const VerdictCard: React.FC<VerdictCardProps> = ({
           </div>
         </div>
 
-        {/* Reasoning Narrative */}
-        <p className="mt-4 text-sm leading-relaxed text-stone-700 sm:text-base">
+        {/* Narrative Reasoning */}
+        <p className="mt-5 text-sm leading-relaxed text-[#cfcce2] sm:text-base">
           {tiebreakerVerdict.reasoning}
         </p>
       </div>
 
-      {/* The Crux Question & The Gut-Check Quadrant */}
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+      {/* The Crux Question & The Intuitive Gut-Check */}
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
         {/* The Deciding Question */}
         <div
           id="crux-question-card"
-          className="rounded-2xl border border-stone-200 bg-white p-6 shadow-2xs"
+          className="rounded-2xl border border-[#2c284f] bg-[#1e1c35] p-5 shadow-lg shadow-black/20 flex flex-col justify-between"
         >
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 text-amber-800">
-              <HelpCircle className="h-4 w-4" />
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#272349] text-violet-400">
+                <HelpCircle className="h-4 w-4" />
+              </div>
+              <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+                {t.theCruxQuestion}
+              </h3>
             </div>
-            <h3 className="font-serif text-lg font-bold text-stone-900">
-              {t.theCruxQuestion}
-            </h3>
+            <p className="font-display text-base font-semibold italic leading-relaxed text-white sm:text-lg">
+              &ldquo;{tiebreakerVerdict.theDecidingQuestion}&rdquo;
+            </p>
           </div>
-          <p className="mt-3 font-serif text-base italic leading-relaxed text-stone-800 sm:text-lg">
-            &ldquo;{tiebreakerVerdict.theDecidingQuestion}&rdquo;
-          </p>
-          <p className="mt-3 text-xs text-stone-500">
+          <p className="mt-4 border-t border-[#2a264a] pt-3 text-[11px] text-[#7a7599]">
             {language === 'es'
-              ? 'Si respondes con honestidad a esta única pregunta, el resto de variables encajan en su sitio.'
-              : 'Answer this single question with total candor, and the surrounding trade-offs resolve themselves.'}
+              ? 'Responde con franqueza a esta única pregunta: todo lo demás son distracciones secundarias.'
+              : 'Answer this single question with candor; the remaining complications will naturally dissolve.'}
           </p>
         </div>
 
-        {/* The Gut Check */}
+        {/* The Intuitive Gut Check */}
         <div
           id="gut-check-card"
-          className="rounded-2xl border border-stone-200 bg-white p-6 shadow-2xs"
+          className="rounded-2xl border border-[#2c284f] bg-[#1e1c35] p-5 shadow-lg shadow-black/20 flex flex-col justify-between"
         >
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-stone-100 text-stone-800">
-              <Sparkles className="h-4 w-4 text-amber-600" />
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#272349] text-fuchsia-400">
+                <Sparkles className="h-4 w-4" />
+              </div>
+              <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+                {t.gutCheck}
+              </h3>
             </div>
-            <h3 className="font-serif text-lg font-bold text-stone-900">
-              {t.gutCheck}
-            </h3>
+            <p className="text-sm leading-relaxed text-[#cfcce2]">
+              {tiebreakerVerdict.gutCheckTest}
+            </p>
           </div>
-          <p className="mt-3 text-sm leading-relaxed text-stone-700">
-            {tiebreakerVerdict.gutCheckTest}
-          </p>
-          <p className="mt-3 text-xs text-stone-500">
+          <p className="mt-4 border-t border-[#2a264a] pt-3 text-[11px] text-[#7a7599]">
             {language === 'es'
-              ? 'La lógica pesa los datos, pero tu instinto ya conoce el desenlace que realmente deseas tolerar.'
-              : 'Logic measures data, but your subconscious already knows which consequence you are truly prepared to own.'}
+              ? 'La lógica examina los datos, pero tu instinto ya conoce la consecuencia que realmente estás dispuesto a asumir.'
+              : 'Logic analyzes data, but intuition already knows the trade-off you are truly willing to bear.'}
           </p>
         </div>
       </div>
 
-      {/* Interactive Coin Flip Simulator */}
+      {/* Subconscious Decision Coin Flip Simulator */}
       <div
         id="coin-simulator-card"
-        className="rounded-2xl border border-amber-200/80 bg-stone-50 p-6 sm:p-7"
+        className="rounded-2xl border border-[#2c284f] bg-[#17152b] p-5 sm:p-6"
       >
         <div className="flex flex-col items-center justify-between gap-4 text-center sm:flex-row sm:text-left">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-amber-600 text-stone-100 shadow-sm">
-              <Coins className="h-6 w-6" />
+          <div className="flex items-center gap-3.5">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-violet-600 to-fuchsia-500 text-white shadow-md shadow-violet-950/40">
+              <Coins className={`h-5 w-5 ${isFlipping ? 'animate-spin' : ''}`} />
             </div>
             <div>
-              <h4 className="font-serif text-base font-bold text-stone-900">
+              <h4 className="text-sm font-bold text-white">
                 {t.flipCoinPrompt}
               </h4>
-              <p className="text-xs text-stone-600">
+              <p className="text-xs text-[#8e8aa8] max-w-xl">
                 {language === 'es'
-                  ? 'Freud aconsejaba lanzar una moneda: en el segundo que vuela, sabrás exactamente qué resultado esperas en secreto.'
-                  : 'Sigmund Freud advised coin flips not to follow the coin, but to reveal what your heart secretly hoped while it was in the air.'}
+                  ? 'Freud explicaba que lanzar una moneda no es para obedecerla, sino para descubrir qué resultado esperabas en secreto mientras está en el aire.'
+                  : 'Sigmund Freud noted that flipping a coin is not to abide by it, but to catch your subconscious hoping for a specific outcome mid-air.'}
               </p>
             </div>
           </div>
@@ -180,80 +224,99 @@ export const VerdictCard: React.FC<VerdictCardProps> = ({
             type="button"
             onClick={handleFlipCoin}
             disabled={isFlipping}
-            className="flex shrink-0 items-center gap-2 rounded-xl bg-stone-900 px-4 py-2.5 text-xs font-semibold text-white shadow-xs transition hover:bg-stone-800 active:scale-95 disabled:opacity-50"
+            className="shrink-0 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-violet-950/40 transition hover:opacity-95 disabled:opacity-40"
           >
-            <Coins className={`h-4 w-4 ${isFlipping ? 'animate-spin text-amber-400' : ''}`} />
-            <span>{isFlipping ? (language === 'es' ? 'Volando en el aire...' : 'Flipping...') : t.flipCoinButton}</span>
+            {isFlipping ? (language === 'es' ? 'En el aire...' : 'Flipping...') : t.flipCoinButton}
           </button>
         </div>
 
-        {/* Coin result animation box */}
+        {/* Revealed Outcome */}
         {coinResult && (
-          <div className="mt-4 rounded-xl border border-amber-300 bg-white p-4 text-center sm:text-left">
-            <div className="flex flex-col items-center justify-between gap-2 sm:flex-row">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-amber-800">
-                  {t.coinResult}
-                </span>
-                <span className="rounded-md bg-amber-100 px-3 py-1 font-serif text-sm font-bold text-amber-900">
-                  {coinResult}
-                </span>
-              </div>
-              <span className="text-xs italic text-stone-500">
-                {t.coinGutCheckPrompt}
+          <div className="mt-4 rounded-xl border border-[#352f5a] bg-[#1f1c39] p-4 flex flex-col sm:flex-row items-center justify-between gap-2.5 animate-in fade-in duration-200">
+            <div className="flex items-center gap-2.5">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#9b97b6]">
+                {t.coinResult}
+              </span>
+              <span className="rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-600 px-3 py-1 font-display text-sm font-extrabold text-white">
+                {coinResult}
               </span>
             </div>
+            <p className="text-xs italic text-[#cfcce2]">
+              {t.coinGutCheckPrompt}
+            </p>
           </div>
         )}
       </div>
 
-      {/* Risk Hedging & Immediate 48-Hour Steps */}
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        {/* Risk Hedging */}
+      {/* Immediate 48-Hour Action Plan & Risk Hedging */}
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+        {/* Next 48 Hours Action Checklist */}
         <div
-          id="risk-hedging-card"
-          className="rounded-2xl border border-stone-200 bg-white p-6 shadow-2xs"
+          id="immediate-steps-card"
+          className="rounded-2xl border border-[#2c284f] bg-[#1e1c35] p-5 shadow-lg shadow-black/20"
         >
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-50 text-rose-700">
-              <ShieldAlert className="h-4 w-4" />
+          <div className="flex items-center justify-between mb-3.5 border-b border-[#2a264a] pb-3">
+            <div className="flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#272349] text-violet-400">
+                <Calendar className="h-4 w-4" />
+              </div>
+              <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+                {t.immediateSteps}
+              </h3>
             </div>
-            <h3 className="font-serif text-lg font-bold text-stone-900">
-              {t.riskHedging}
-            </h3>
+            <span className="text-[11px] text-[#7a7599]">
+              {completedSteps.length} / {tiebreakerVerdict.nextActionableSteps.length} {language === 'es' ? 'completados' : 'done'}
+            </span>
           </div>
-          <ul className="mt-4 space-y-2.5">
-            {tiebreakerVerdict.riskHedgingStrategies.map((strategy, idx) => (
-              <li key={idx} className="flex items-start gap-2.5 text-xs sm:text-sm text-stone-700">
-                <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-rose-100 text-[10px] font-bold text-rose-800">
-                  {idx + 1}
-                </span>
-                <span>{strategy}</span>
-              </li>
-            ))}
+
+          <ul className="space-y-2.5">
+            {tiebreakerVerdict.nextActionableSteps.map((step, idx) => {
+              const isChecked = completedSteps.includes(idx);
+              return (
+                <li
+                  key={idx}
+                  onClick={() => handleToggleStep(idx)}
+                  className="flex items-start gap-2.5 text-xs sm:text-sm text-[#cfcce2] cursor-pointer group select-none"
+                >
+                  <div
+                    className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-md border transition-all ${
+                      isChecked
+                        ? 'border-violet-500 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white'
+                        : 'border-[#3f3a69] bg-[#16142a] group-hover:border-violet-400'
+                    }`}
+                  >
+                    {isChecked && <Check className="h-3 w-3" />}
+                  </div>
+                  <span className={isChecked ? 'line-through text-[#656084]' : ''}>
+                    {step}
+                  </span>
+                </li>
+              );
+            })}
           </ul>
         </div>
 
-        {/* Immediate Steps */}
+        {/* Risk Hedging */}
         <div
-          id="immediate-steps-card"
-          className="rounded-2xl border border-stone-200 bg-white p-6 shadow-2xs"
+          id="risk-hedging-card"
+          className="rounded-2xl border border-[#2c284f] bg-[#1e1c35] p-5 shadow-lg shadow-black/20"
         >
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
-              <CheckCircle2 className="h-4 w-4" />
+          <div className="flex items-center gap-2 mb-3.5 border-b border-[#2a264a] pb-3">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#272349] text-fuchsia-400">
+              <ShieldAlert className="h-4 w-4" />
             </div>
-            <h3 className="font-serif text-lg font-bold text-stone-900">
-              {t.immediateSteps}
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+              {t.riskHedging}
             </h3>
           </div>
-          <ul className="mt-4 space-y-2.5">
-            {tiebreakerVerdict.nextActionableSteps.map((step, idx) => (
-              <li key={idx} className="flex items-start gap-2.5 text-xs sm:text-sm text-stone-700">
-                <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[10px] font-bold text-emerald-800">
+
+          <ul className="space-y-2.5">
+            {tiebreakerVerdict.riskHedgingStrategies.map((strategy, idx) => (
+              <li key={idx} className="flex items-start gap-2.5 text-xs sm:text-sm text-[#cfcce2]">
+                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-lg bg-[#28234c] text-[11px] font-bold text-violet-300">
                   {idx + 1}
                 </span>
-                <span>{step}</span>
+                <span>{strategy}</span>
               </li>
             ))}
           </ul>

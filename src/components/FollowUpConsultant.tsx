@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MessageSquare, Send, Sparkles, User, Bot, AlertCircle } from 'lucide-react';
+import { MessageSquare, Send, AlertCircle, Loader2 } from 'lucide-react';
 import { DecisionAnalysis } from '../types';
 import { TranslationStrings } from '../data/translations';
 
@@ -24,6 +24,23 @@ export const FollowUpConsultant: React.FC<FollowUpConsultantProps> = ({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const quickPrompts =
+    language === 'es'
+      ? [
+          '¿Cuál es el peor escenario si elijo la recomendada?',
+          '¿Cómo puedo validar esta decisión en 14 días sin arriesgar demasiado?',
+          '¿Qué pasaría si negocio una opción híbrida?',
+        ]
+      : [
+          'What is the catastrophic downside if I take the recommendation?',
+          'How can I prototype or de-risk this path within 14 days?',
+          'Is there a viable hybrid middle-ground between these options?',
+        ];
+
+  const handleSendPrompt = (promptText: string) => {
+    setQuestion(promptText);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,57 +92,76 @@ export const FollowUpConsultant: React.FC<FollowUpConsultantProps> = ({
   };
 
   return (
-    <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-2xs sm:p-6">
-      <div className="flex items-center gap-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-stone-100 text-stone-800">
-          <MessageSquare className="h-4 w-4 text-amber-600" />
-        </div>
-        <div>
-          <h3 className="font-serif text-base font-bold text-stone-900 sm:text-lg">
-            {language === 'es' ? 'Consultoría y Dudas Pendientes' : 'Ask Follow-Up Doubts'}
-          </h3>
-          <p className="text-xs text-stone-500">
-            {language === 'es'
-              ? 'Profundiza en cualquier aspecto, escenario hipotético o negociación con la IA.'
-              : 'Drill down into hypothetical scenarios, emotional hesitation, or specific trade-offs.'}
-          </p>
+    <div className="rounded-2xl border border-[#2c284f] bg-[#1e1c35] p-5 sm:p-6 shadow-xl shadow-black/20">
+      <div className="flex items-center justify-between border-b border-[#2a264a] pb-3.5">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-tr from-violet-600 to-fuchsia-600 text-white shadow-md shadow-violet-950/40">
+            <MessageSquare className="h-4 w-4" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-white">
+              {language === 'es' ? 'Consultoría y Escenarios Hipotéticos' : 'Follow-Up Doubts & What-Ifs'}
+            </h3>
+            <p className="text-[11px] text-[#8e8aa8]">
+              {language === 'es'
+                ? 'Profundiza en cualquier aspecto, escenario o emoción con la IA.'
+                : 'Drill down into hypothetical scenarios, emotional hesitation, or negotiations.'}
+            </p>
+          </div>
         </div>
       </div>
 
+      {/* Suggested shortcuts / Prompts */}
+      {messages.length === 0 && (
+        <div className="mt-3.5">
+          <span className="text-[10px] uppercase tracking-wider font-bold text-[#807b9f] block mb-2">
+            {language === 'es' ? 'Preguntas sugeridas' : 'Suggested angles'}
+          </span>
+          <div className="flex flex-wrap gap-2">
+            {quickPrompts.map((qp, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => handleSendPrompt(qp)}
+                className="rounded-xl border border-[#2b274e] bg-[#16142a] px-3 py-1.5 text-[11px] font-medium text-[#cfcce2] hover:border-violet-500/50 hover:bg-[#221f3d] hover:text-white transition text-left"
+              >
+                {qp}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Messages history */}
       {messages.length > 0 && (
-        <div className="mt-4 max-h-80 space-y-3 overflow-y-auto rounded-xl border border-stone-100 bg-stone-50/60 p-3 text-xs sm:text-sm">
+        <div className="mt-4 max-h-80 space-y-3 overflow-y-auto rounded-xl border border-[#2b274e] bg-[#16142a] p-3.5 text-xs sm:text-sm">
           {messages.map((msg) => (
             <div
               key={msg.id}
-              className={`flex items-start gap-2.5 ${
+              className={`flex gap-2.5 ${
                 msg.sender === 'user' ? 'justify-end' : 'justify-start'
               }`}
             >
-              {msg.sender === 'assistant' && (
-                <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-600 text-white">
-                  <Bot className="h-3.5 w-3.5" />
-                </div>
-              )}
               <div
-                className={`max-w-[85%] rounded-xl px-3.5 py-2 leading-relaxed whitespace-pre-line ${
+                className={`max-w-[85%] rounded-2xl p-3.5 leading-relaxed ${
                   msg.sender === 'user'
-                    ? 'bg-stone-900 text-white'
-                    : 'border border-stone-200 bg-white text-stone-800 shadow-2xs'
+                    ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white font-medium shadow-md shadow-violet-950/40'
+                    : 'border border-[#322d56] bg-[#221f3d] text-[#f0edf9] shadow-sm'
                 }`}
               >
-                {msg.text}
+                <span className="block text-[10px] font-bold uppercase tracking-wider mb-1 opacity-70">
+                  {msg.sender === 'user'
+                    ? language === 'es' ? 'Tú' : 'You'
+                    : 'The Tiebreaker'}
+                </span>
+                <p className="whitespace-pre-wrap">{msg.text}</p>
               </div>
-              {msg.sender === 'user' && (
-                <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-stone-200 text-stone-700">
-                  <User className="h-3.5 w-3.5" />
-                </div>
-              )}
             </div>
           ))}
+
           {isLoading && (
-            <div className="flex items-center gap-2 text-xs text-stone-500">
-              <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-amber-600 border-t-transparent" />
+            <div className="flex items-center gap-2 text-xs text-violet-300 py-1.5">
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-fuchsia-400" />
               <span>{t.asking}</span>
             </div>
           )}
@@ -133,26 +169,26 @@ export const FollowUpConsultant: React.FC<FollowUpConsultantProps> = ({
       )}
 
       {error && (
-        <div className="mt-3 flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 p-2.5 text-xs text-rose-800">
+        <div className="mt-3.5 flex items-center gap-2 rounded-xl border border-rose-500/40 bg-rose-950/40 p-3 text-xs text-rose-300">
           <AlertCircle className="h-4 w-4 shrink-0" />
           <span>{error}</span>
         </div>
       )}
 
-      {/* Input query form */}
-      <form onSubmit={handleSubmit} className="mt-4 flex items-center gap-2">
+      {/* Input query field */}
+      <form onSubmit={handleSubmit} className="mt-4 flex gap-2">
         <input
           type="text"
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
           placeholder={t.followUpQuestionPlaceholder}
           disabled={isLoading}
-          className="flex-1 rounded-xl border border-stone-300 bg-stone-50/80 px-3.5 py-2.5 text-xs sm:text-sm text-stone-900 placeholder:text-stone-400 focus:border-amber-600 focus:bg-white focus:outline-hidden focus:ring-1 focus:ring-amber-500"
+          className="flex-1 rounded-xl border border-[#2e2a53] bg-[#151429] px-3.5 py-2.5 text-xs sm:text-sm text-white placeholder:text-[#5f5a81] focus:border-violet-500 focus:outline-none"
         />
         <button
           type="submit"
-          disabled={isLoading || !question.trim()}
-          className="flex items-center gap-1.5 rounded-xl bg-amber-600 px-4 py-2.5 text-xs font-semibold text-white shadow-xs transition hover:bg-amber-700 disabled:opacity-40"
+          disabled={!question.trim() || isLoading}
+          className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-violet-950/40 transition hover:opacity-90 disabled:opacity-30"
         >
           <Send className="h-3.5 w-3.5" />
           <span className="hidden sm:inline">{t.askFollowUp}</span>

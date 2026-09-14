@@ -32,7 +32,8 @@ function getGenAIClient(): GoogleGenAI {
 
 // Helper for resilient generation with fallback models
 async function generateContentWithRetry(ai: GoogleGenAI, params: any) {
-  const models = ["gemini-3.8-flash", "gemini-flash-latest", "gemini-3.1-flash-lite"];
+  // Use gemini-3.1-flash-lite first to avoid exhausted quotas and minimize latency, with gemini-3.8-flash as fallback
+  const models = ["gemini-3.1-flash-lite", "gemini-3.8-flash"];
   let lastError: any = null;
 
   for (const model of models) {
@@ -47,16 +48,52 @@ async function generateContentWithRetry(ai: GoogleGenAI, params: any) {
         }
       } catch (err: any) {
         lastError = err;
-        console.warn(`Model ${model} attempt ${attempt} failed:`, err?.message || err);
-        // If 503 or rate limit, wait a short backoff before retry
+        const errStr = String(err?.message || err);
+        console.warn(`Model ${model} attempt ${attempt} failed:`, errStr);
+
+        // If 429 quota exhausted, don't retry the same model; immediately switch to the next model
+        if (errStr.includes("429") || errStr.includes("RESOURCE_EXHAUSTED")) {
+          break;
+        }
+
+        // If 503 temporary unavailable on first attempt, wait briefly before retrying
         if (attempt === 1) {
-          await new Promise((resolve) => setTimeout(resolve, 1500));
+          await new Promise((resolve) => setTimeout(resolve, 1000));
         }
       }
     }
   }
 
   throw lastError || new Error("Failed to generate content after retries.");
+}
+
+function formatErrorMessage(error: any, language: string = "en"): string {
+  const raw = error?.message || String(error || "");
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed?.error?.message) {
+      if (parsed.error.code === 429 || parsed.error.status === "RESOURCE_EXHAUSTED") {
+        return language === "es"
+          ? "El servicio de IA ha alcanzado temporalmente su límite de solicitudes por minuto. Por favor, espera unos instantes y vuelve a intentar."
+          : "The AI service temporarily reached its rate limit. Please wait a few seconds and try again.";
+      }
+      return parsed.error.message;
+    }
+  } catch (_) {}
+
+  if (raw.includes("429") || raw.includes("RESOURCE_EXHAUSTED") || raw.includes("Quota exceeded")) {
+    return language === "es"
+      ? "Límite de solicitudes alcanzado temporalmente. Por favor, reintenta en unos momentos."
+      : "Temporary rate limit reached. Please wait a few moments and try again.";
+  }
+
+  if (raw.includes("503") || raw.includes("UNAVAILABLE")) {
+    return language === "es"
+      ? "El servicio de IA está experimentando alta demanda momentánea. Por favor, intenta de nuevo en unos segundos."
+      : "The AI model is experiencing temporary high demand. Please retry in a few seconds.";
+  }
+
+  return raw || (language === "es" ? "Error al procesar la decisión." : "Failed to analyze decision.");
 }
 
 // Health check endpoint
@@ -241,9 +278,8 @@ Generate a comprehensive decision breakdown matching the structured schema.`;
     return res.json(parsed);
   } catch (error: any) {
     console.error("Error analyzing decision:", error);
-    return res.status(500).json({
-      error: error.message || "Failed to analyze decision with AI.",
-    });
+    const friendlyError = formatErrorMessage(error, req.body?.language || "en");
+    return res.status(500).json({ error: friendlyError });
   }
 });
 
@@ -278,7 +314,8 @@ Provide a direct, wise, actionable response helping the user clarify this specif
     return res.json({ answer: response.text });
   } catch (error: any) {
     console.error("Error in follow-up:", error);
-    return res.status(500).json({ error: error.message || "Failed to answer follow-up." });
+    const friendlyError = formatErrorMessage(error, req.body?.language || "en");
+    return res.status(500).json({ error: friendlyError });
   }
 });
 

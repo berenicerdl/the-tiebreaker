@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Shield, AlertCircle, Compass, Zap, Layers } from 'lucide-react';
 import { DecisionAnalysis, SWOTData } from '../types';
 import { TranslationStrings } from '../data/translations';
 
@@ -22,77 +21,75 @@ export const SwotView: React.FC<SwotViewProps> = ({ analysis, t, language }) => 
   const swot: SWOTData = activeOption.swot;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Option Selector Pills */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-stone-200 pb-3">
-        {analysis.options.map((opt) => {
-          const isActive = opt.id === activeOption.id;
-          return (
-            <button
-              key={opt.id}
-              type="button"
-              onClick={() => setSelectedOptionId(opt.id)}
-              className={`rounded-xl px-4 py-2 text-xs font-semibold sm:text-sm transition-all ${
-                isActive
-                  ? 'bg-amber-600 text-white shadow-xs'
-                  : 'border border-stone-200 bg-white text-stone-700 hover:border-stone-300 hover:bg-stone-50'
-              }`}
-            >
-              <span>{opt.name}</span>
-            </button>
-          );
-        })}
+      <div className="flex items-center justify-between border-b border-[#292548] pb-3">
+        <div className="flex flex-wrap gap-2" role="tablist">
+          {analysis.options.map((opt) => {
+            const isActive = opt.id === activeOption.id;
+            return (
+              <button
+                key={opt.id}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => setSelectedOptionId(opt.id)}
+                className={`rounded-xl px-4 py-2 text-xs font-bold transition-all ${
+                  isActive
+                    ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-md shadow-violet-950/40'
+                    : 'border border-[#2b274e] bg-[#1a1831] text-[#9b97b6] hover:border-violet-500/40 hover:text-white'
+                }`}
+              >
+                <span>{opt.name}</span>
+              </button>
+            );
+          })}
+        </div>
+        <span className="text-[11px] text-[#7a7599] font-medium hidden sm:inline-block">
+          {language === 'es' ? 'Cuadrante Estratégico Interno / Externo' : 'Internal vs External Matrix'}
+        </span>
       </div>
 
-      {/* Option Header */}
-      <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-2xs">
-        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="rounded-md bg-stone-100 px-2 py-0.5 text-xs font-bold text-stone-700 uppercase tracking-wider">
-                SWOT / DAFO
-              </span>
-              <h3 className="font-serif text-xl font-bold text-stone-900">
-                {activeOption.name}
-              </h3>
-            </div>
-            <p className="mt-1 text-xs text-stone-500 sm:text-sm">
-              {activeOption.tagline}
-            </p>
+      {/* Option Tagline Summary */}
+      <div className="rounded-2xl border border-[#2c284f] bg-[#1e1c35] p-5 shadow-xl shadow-black/20 flex items-center justify-between">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <span className="rounded-lg bg-gradient-to-r from-violet-600/30 to-fuchsia-600/30 border border-violet-500/30 px-2.5 py-0.5 text-[10px] font-bold text-violet-300 uppercase tracking-wider">
+              SWOT / DAFO
+            </span>
+            <h3 className="font-display text-xl font-bold text-white">
+              {activeOption.name}
+            </h3>
           </div>
-          <div className="mt-2 text-xs text-stone-500 sm:mt-0">
-            {language === 'es'
-              ? 'Cuadrante Estratégico Interno / Externo'
-              : 'Internal & External Strategic Matrix'}
-          </div>
+          <p className="text-xs text-[#8e8aa8] mt-1">{activeOption.tagline}</p>
         </div>
       </div>
 
-      {/* 2x2 SWOT Matrix Grid */}
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+      {/* 2x2 Matrix Grid */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {/* Strengths (Internal Positive) */}
         <div
           id="swot-strengths-card"
-          className="rounded-2xl border border-emerald-200 bg-emerald-50/40 p-5 shadow-2xs"
+          className="rounded-2xl border border-[#2c284f] bg-[#1e1c35] p-5 shadow-xl shadow-black/20"
         >
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-800">
-              <Shield className="h-4 w-4" />
-            </div>
-            <div>
-              <h4 className="font-serif text-base font-bold text-emerald-950">
+          <div className="flex items-center justify-between border-b border-[#2a264a] pb-3">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-violet-600/30 border border-violet-500/40 text-xs font-bold text-violet-300">
+                S
+              </span>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-white">
                 {t.swotStrengths}
               </h4>
-              <span className="text-[11px] text-emerald-700">
-                {language === 'es' ? 'Ventajas inherentes y activos clave' : 'Inherent advantages & proprietary assets'}
-              </span>
             </div>
+            <span className="text-[10px] text-violet-400 uppercase font-semibold">
+              {language === 'es' ? 'Interno (+)' : 'Internal (+)'}
+            </span>
           </div>
-          <ul className="mt-4 space-y-2.5">
+          <ul className="mt-3.5 space-y-2.5">
             {swot.strengths.map((item, idx) => (
-              <li key={idx} className="flex items-start gap-2 text-xs sm:text-sm text-stone-800">
-                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-600" />
-                <span>{item}</span>
+              <li key={idx} className="flex items-start gap-2.5 text-xs text-[#cfcce2]">
+                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-violet-400" />
+                <span className="leading-relaxed">{item}</span>
               </li>
             ))}
           </ul>
@@ -101,26 +98,26 @@ export const SwotView: React.FC<SwotViewProps> = ({ analysis, t, language }) => 
         {/* Weaknesses (Internal Negative) */}
         <div
           id="swot-weaknesses-card"
-          className="rounded-2xl border border-rose-200 bg-rose-50/40 p-5 shadow-2xs"
+          className="rounded-2xl border border-[#2c284f] bg-[#1e1c35] p-5 shadow-xl shadow-black/20"
         >
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-100 text-rose-800">
-              <AlertCircle className="h-4 w-4" />
-            </div>
-            <div>
-              <h4 className="font-serif text-base font-bold text-rose-950">
+          <div className="flex items-center justify-between border-b border-[#2a264a] pb-3">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-fuchsia-600/30 border border-fuchsia-500/40 text-xs font-bold text-fuchsia-300">
+                W
+              </span>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-white">
                 {t.swotWeaknesses}
               </h4>
-              <span className="text-[11px] text-rose-700">
-                {language === 'es' ? 'Vulnerabilidades y limitaciones' : 'Internal friction, gaps & limitations'}
-              </span>
             </div>
+            <span className="text-[10px] text-fuchsia-400 uppercase font-semibold">
+              {language === 'es' ? 'Interno (-)' : 'Internal (-)'}
+            </span>
           </div>
-          <ul className="mt-4 space-y-2.5">
+          <ul className="mt-3.5 space-y-2.5">
             {swot.weaknesses.map((item, idx) => (
-              <li key={idx} className="flex items-start gap-2 text-xs sm:text-sm text-stone-800">
-                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-rose-600" />
-                <span>{item}</span>
+              <li key={idx} className="flex items-start gap-2.5 text-xs text-[#cfcce2]">
+                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-fuchsia-400" />
+                <span className="leading-relaxed">{item}</span>
               </li>
             ))}
           </ul>
@@ -129,26 +126,26 @@ export const SwotView: React.FC<SwotViewProps> = ({ analysis, t, language }) => 
         {/* Opportunities (External Positive) */}
         <div
           id="swot-opportunities-card"
-          className="rounded-2xl border border-indigo-200 bg-indigo-50/40 p-5 shadow-2xs"
+          className="rounded-2xl border border-[#2c284f] bg-[#1e1c35] p-5 shadow-xl shadow-black/20"
         >
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-100 text-indigo-800">
-              <Zap className="h-4 w-4" />
-            </div>
-            <div>
-              <h4 className="font-serif text-base font-bold text-indigo-950">
+          <div className="flex items-center justify-between border-b border-[#2a264a] pb-3">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-600/30 border border-indigo-500/40 text-xs font-bold text-indigo-300">
+                O
+              </span>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-white">
                 {t.swotOpportunities}
               </h4>
-              <span className="text-[11px] text-indigo-700">
-                {language === 'es' ? 'Oportunidades de mercado y expansión' : 'Favorable trends & strategic tailwinds'}
-              </span>
             </div>
+            <span className="text-[10px] text-indigo-400 uppercase font-semibold">
+              {language === 'es' ? 'Externo (+)' : 'External (+)'}
+            </span>
           </div>
-          <ul className="mt-4 space-y-2.5">
+          <ul className="mt-3.5 space-y-2.5">
             {swot.opportunities.map((item, idx) => (
-              <li key={idx} className="flex items-start gap-2 text-xs sm:text-sm text-stone-800">
-                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-600" />
-                <span>{item}</span>
+              <li key={idx} className="flex items-start gap-2.5 text-xs text-[#cfcce2]">
+                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-400" />
+                <span className="leading-relaxed">{item}</span>
               </li>
             ))}
           </ul>
@@ -157,26 +154,26 @@ export const SwotView: React.FC<SwotViewProps> = ({ analysis, t, language }) => 
         {/* Threats (External Negative) */}
         <div
           id="swot-threats-card"
-          className="rounded-2xl border border-amber-200 bg-amber-50/40 p-5 shadow-2xs"
+          className="rounded-2xl border border-[#2c284f] bg-[#1e1c35] p-5 shadow-xl shadow-black/20"
         >
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 text-amber-800">
-              <Compass className="h-4 w-4" />
-            </div>
-            <div>
-              <h4 className="font-serif text-base font-bold text-amber-950">
+          <div className="flex items-center justify-between border-b border-[#2a264a] pb-3">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-rose-600/30 border border-rose-500/40 text-xs font-bold text-rose-300">
+                T
+              </span>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-white">
                 {t.swotThreats}
               </h4>
-              <span className="text-[11px] text-amber-700">
-                {language === 'es' ? 'Riesgos externos e incertidumbres' : 'External headwinds & unmitigated risks'}
-              </span>
             </div>
+            <span className="text-[10px] text-rose-400 uppercase font-semibold">
+              {language === 'es' ? 'Externo (-)' : 'External (-)'}
+            </span>
           </div>
-          <ul className="mt-4 space-y-2.5">
+          <ul className="mt-3.5 space-y-2.5">
             {swot.threats.map((item, idx) => (
-              <li key={idx} className="flex items-start gap-2 text-xs sm:text-sm text-stone-800">
-                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-600" />
-                <span>{item}</span>
+              <li key={idx} className="flex items-start gap-2.5 text-xs text-[#cfcce2]">
+                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-rose-400" />
+                <span className="leading-relaxed">{item}</span>
               </li>
             ))}
           </ul>

@@ -12,7 +12,8 @@ import {
   Sparkles,
   AlertCircle,
   ArrowLeft,
-  Share2,
+  Edit3,
+  CheckCircle2,
 } from 'lucide-react';
 import { DecisionAnalysis, ViewTab } from './types';
 import { translations, TranslationStrings } from './data/translations';
@@ -56,13 +57,29 @@ export default function App() {
     return [];
   });
 
+  // Stored form values to allow easy reversal / editing without data loss
+  const [cachedFormValues, setCachedFormValues] = useState<{
+    dilemma: string;
+    options: string[];
+    priorities: string[];
+    riskTolerance: 'conservative' | 'balanced' | 'bold';
+  } | null>(null);
+
+  const [isEditingForm, setIsEditingForm] = useState(false);
   const [activeTab, setActiveTab] = useState<ViewTab>('verdict');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const t: TranslationStrings = translations[language];
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage((current) => (current === msg ? null : current));
+    }, 2500);
+  };
 
   // Persist language
   useEffect(() => {
@@ -83,14 +100,54 @@ export default function App() {
     }
   }, [currentAnalysis]);
 
+  // Keyboard shortcuts (Shneiderman's Rule 2: Enable Frequent Users to Use Shortcuts)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeTag = (document.activeElement?.tagName || '').toLowerCase();
+      if (activeTag === 'input' || activeTag === 'textarea') return;
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'h') {
+        e.preventDefault();
+        setIsHistoryOpen((prev) => !prev);
+      } else if (e.key.toLowerCase() === 'n' && !e.ctrlKey && !e.metaKey) {
+        handleNewDecision();
+      } else if (e.key.toLowerCase() === 'e' && currentAnalysis && !isEditingForm) {
+        handleEditDilemma();
+      } else if (currentAnalysis && !isEditingForm) {
+        if (e.key === '1') setActiveTab('verdict');
+        if (e.key === '2') setActiveTab('pros_cons');
+        if (e.key === '3') setActiveTab('comparison');
+        if (e.key === '4') setActiveTab('swot');
+        if (e.key === '5') setActiveTab('all');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentAnalysis, isEditingForm]);
+
   const handleToggleLanguage = (lang: 'en' | 'es') => {
     setLanguage(lang);
   };
 
   const handleNewDecision = () => {
     setCurrentAnalysis(null);
+    setIsEditingForm(false);
+    setCachedFormValues(null);
     setError(null);
     setActiveTab('verdict');
+  };
+
+  const handleEditDilemma = () => {
+    if (currentAnalysis && !cachedFormValues) {
+      setCachedFormValues({
+        dilemma: currentAnalysis.dilemma,
+        options: currentAnalysis.options.map((o) => o.name),
+        priorities: [],
+        riskTolerance: 'balanced',
+      });
+    }
+    setIsEditingForm(true);
   };
 
   const handleAnalyzeDecision = async (formData: {
@@ -101,6 +158,7 @@ export default function App() {
   }) => {
     setIsLoading(true);
     setError(null);
+    setCachedFormValues(formData);
 
     try {
       const response = await fetch('/api/analyze-decision', {
@@ -128,7 +186,6 @@ export default function App() {
         dilemma: formData.dilemma,
       };
 
-      // If the model auto-detected Spanish, match app language to ensure cohesive experience
       if (data.detectedLanguage === 'es' && language !== 'es') {
         setLanguage('es');
       } else if (data.detectedLanguage === 'en' && language !== 'en') {
@@ -136,10 +193,12 @@ export default function App() {
       }
 
       setCurrentAnalysis(newAnalysis);
+      setIsEditingForm(false);
       setActiveTab('verdict');
 
-      // Add to history (prevent duplicates)
+      // Add to history
       setHistory((prev) => [newAnalysis, ...prev.filter((h) => h.id !== newAnalysis.id)]);
+      showToast(language === 'es' ? 'Análisis completado' : 'Analysis complete');
     } catch (err: any) {
       console.error(err);
       setError(err.message || t.errorGeneric);
@@ -151,6 +210,9 @@ export default function App() {
   const handleUpdateAnalysis = (updated: DecisionAnalysis) => {
     setCurrentAnalysis(updated);
     setHistory((prev) => prev.map((h) => (h.id === updated.id ? updated : h)));
+    if (updated.isDecided) {
+      showToast(language === 'es' ? 'Decisión fijada' : 'Decision committed');
+    }
   };
 
   const handleDeleteDecision = (id: string) => {
@@ -158,12 +220,13 @@ export default function App() {
     if (currentAnalysis?.id === id) {
       setCurrentAnalysis(null);
     }
+    showToast(language === 'es' ? 'Decisión eliminada' : 'Decision removed');
   };
 
   const handleClearHistory = () => {
-    if (window.confirm(language === 'es' ? '¿Borrar todo el historial?' : 'Clear all saved decisions?')) {
+    if (window.confirm(language === 'es' ? '¿Borrar todo el historial de decisiones?' : 'Clear all saved decisions?')) {
       setHistory([]);
-      setCurrentAnalysis(null);
+      showToast(language === 'es' ? 'Historial borrado' : 'History cleared');
     }
   };
 
@@ -201,13 +264,12 @@ export default function App() {
     });
 
     navigator.clipboard.writeText(md);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2500);
+    showToast(t.copied);
   };
 
   return (
-    <div className="min-h-screen bg-stone-100/70 text-stone-900 selection:bg-amber-500 selection:text-white flex flex-col font-sans">
-      {/* Global Navbar */}
+    <div className="min-h-screen bg-[#131226] text-[#f3f2fa] flex flex-col font-sans selection:bg-violet-500 selection:text-white">
+      {/* Global Minimalist Navbar */}
       <Navbar
         t={t}
         language={language}
@@ -219,18 +281,19 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 pb-16">
+        {/* Error Alert Box */}
         {error && (
-          <div className="mx-auto max-w-4xl px-4 pt-6">
-            <div className="flex items-center gap-2.5 rounded-xl border border-rose-300 bg-rose-50 p-4 text-xs sm:text-sm text-rose-800 shadow-2xs">
-              <AlertCircle className="h-5 w-5 shrink-0 text-rose-600" />
+          <div className="mx-auto max-w-3xl px-4 pt-6">
+            <div className="flex items-center gap-3 rounded-2xl border border-rose-500/40 bg-rose-950/40 p-4 text-xs sm:text-sm text-rose-200 shadow-xl">
+              <AlertCircle className="h-5 w-5 shrink-0 text-rose-400" />
               <div className="flex-1">
-                <span className="font-semibold">{t.errorGeneric}</span>
-                <p className="mt-0.5 text-xs text-rose-700">{error}</p>
+                <span className="font-bold">{t.errorGeneric}</span>
+                <p className="text-xs text-rose-300/80 mt-0.5">{error}</p>
               </div>
               <button
                 type="button"
                 onClick={() => setError(null)}
-                className="font-bold text-rose-900 hover:opacity-75"
+                className="font-bold text-rose-300 hover:text-white p-1"
               >
                 ✕
               </button>
@@ -238,78 +301,133 @@ export default function App() {
           </div>
         )}
 
-        {!currentAnalysis ? (
-          /* Decision Input View */
-          <DecisionInputForm
-            t={t}
-            language={language}
-            onSubmit={handleAnalyzeDecision}
-            isLoading={isLoading}
-          />
+        {!currentAnalysis || isEditingForm ? (
+          /* View 1: Decision Framing & Input Form */
+          <div>
+            {isEditingForm && currentAnalysis && (
+              <div className="mx-auto max-w-3xl px-4 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setIsEditingForm(false)}
+                  className="inline-flex items-center gap-2 text-xs font-bold text-[#9b97b6] hover:text-white transition"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  <span>{language === 'es' ? 'Volver al análisis' : 'Back to analysis'}</span>
+                </button>
+              </div>
+            )}
+            <DecisionInputForm
+              t={t}
+              language={language}
+              onSubmit={handleAnalyzeDecision}
+              isLoading={isLoading}
+              initialValues={cachedFormValues}
+            />
+          </div>
         ) : (
-          /* Decision Analysis Workspace */
-          <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 space-y-6">
-            {/* Top Back / Action Bar */}
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-stone-200 pb-4">
-              <button
-                type="button"
-                onClick={handleNewDecision}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-stone-600 hover:text-stone-900 transition"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                <span>{language === 'es' ? 'Evaluar otra decisión' : 'Evaluate another decision'}</span>
-              </button>
+          /* View 2: Multi-Angle Analysis & Finalization Workspace */
+          <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 space-y-6">
+            {/* Top Action Bar with 3-Stage Process Breadcrumbs */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-[#292548] pb-3.5">
+              {/* Process Stages (Closure Indicator) */}
+              <div className="flex items-center gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={handleEditDilemma}
+                  className="flex items-center gap-1.5 text-[#8e8aa8] hover:text-white transition"
+                  title={t.editDilemma}
+                >
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#242142] text-[10px] font-bold text-[#b2aecd]">
+                    1
+                  </span>
+                  <span className="hidden sm:inline">{language === 'es' ? 'Dilema' : 'Frame'}</span>
+                </button>
+                <span className="text-[#3b3662]">→</span>
+                <span className="flex items-center gap-1.5 font-bold text-white">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-r from-violet-600 to-fuchsia-600 text-[10px] font-extrabold text-white shadow-sm">
+                    2
+                  </span>
+                  <span>{language === 'es' ? 'Análisis' : 'Analyze'}</span>
+                </span>
+                <span className="text-[#3b3662]">→</span>
+                <span className={`flex items-center gap-1.5 ${currentAnalysis.isDecided ? 'font-bold text-emerald-300' : 'text-[#706b90]'}`}>
+                  <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${currentAnalysis.isDecided ? 'bg-emerald-600 text-white' : 'bg-[#242142] text-[#706b90]'}`}>
+                    3
+                  </span>
+                  <span>{language === 'es' ? 'Decisión' : 'Commit'}</span>
+                </span>
+              </div>
 
+              {/* Action Buttons */}
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={handleCopySummary}
-                  className="flex items-center gap-1.5 rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-xs font-semibold text-stone-700 shadow-2xs hover:bg-stone-50 transition"
+                  onClick={handleEditDilemma}
+                  className="flex items-center gap-1.5 rounded-xl border border-[#2b274e] bg-[#1e1c35] px-3 py-1.5 text-xs font-bold text-[#cfcce2] shadow-sm hover:border-violet-500/50 hover:bg-[#252243] hover:text-white transition"
                 >
-                  {copied ? (
-                    <>
-                      <Check className="h-3.5 w-3.5 text-emerald-600" />
-                      <span className="text-emerald-700">{t.copied}</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="h-3.5 w-3.5 text-stone-500" />
-                      <span>{t.exportSummary}</span>
-                    </>
-                  )}
+                  <Edit3 className="h-3.5 w-3.5 text-violet-400" />
+                  <span>{t.editDilemma}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleCopySummary}
+                  className="flex items-center gap-1.5 rounded-xl border border-[#2b274e] bg-[#1e1c35] px-3 py-1.5 text-xs font-bold text-[#cfcce2] shadow-sm hover:border-violet-500/50 hover:bg-[#252243] hover:text-white transition"
+                >
+                  <Copy className="h-3.5 w-3.5 text-fuchsia-400" />
+                  <span>{t.exportSummary}</span>
                 </button>
               </div>
             </div>
 
-            {/* Dilemma Header Hero Card */}
-            <div className="rounded-2xl border border-stone-200 bg-white p-6 shadow-2xs sm:p-7">
-              <span className="rounded-md bg-stone-100 px-2.5 py-1 text-[11px] font-bold text-stone-600 uppercase tracking-wider">
-                {language === 'es' ? 'Dilema Analizado' : 'Analyzed Dilemma'}
-              </span>
-              <h2 className="mt-2 font-serif text-2xl font-bold tracking-tight text-stone-950 sm:text-3xl">
-                {currentAnalysis.primaryQuestion || currentAnalysis.dilemma}
-              </h2>
-              <p className="mt-2 text-xs sm:text-sm text-stone-600 leading-relaxed max-w-4xl">
+            {/* Context Banner: Modern Flat Dark Surface */}
+            <div className="rounded-2xl border border-[#2c284f] bg-[#1e1c35] p-5 sm:p-6 shadow-xl shadow-black/20">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-violet-400">
+                    {language === 'es' ? 'Dilema Evaluado' : 'Evaluated Dilemma'}
+                  </span>
+                  <h2 className="font-display text-xl font-extrabold tracking-tight text-white sm:text-2xl mt-1">
+                    {currentAnalysis.primaryQuestion || currentAnalysis.dilemma}
+                  </h2>
+                </div>
+
+                {currentAnalysis.isDecided && (
+                  <div className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-3 py-1.5 text-xs font-extrabold text-white self-start sm:self-auto shrink-0 shadow-md shadow-violet-950/40">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-300" />
+                    <span>{t.decidedBadge}</span>
+                  </div>
+                )}
+              </div>
+
+              <p className="mt-2.5 text-xs sm:text-sm text-[#b2aecd] leading-relaxed">
                 {currentAnalysis.executiveSummary}
               </p>
 
-              {/* Options Badges overview */}
-              <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-stone-100 pt-4">
-                <span className="text-xs font-medium text-stone-500">
-                  {language === 'es' ? 'Opciones contrastadas:' : 'Contrasting Options:'}
+              {/* Contrasting Options Badges */}
+              <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-[#2a264a] pt-3.5">
+                <span className="text-[11px] font-bold text-[#807b9f]">
+                  {language === 'es' ? 'Caminos analizados:' : 'Paths analyzed:'}
                 </span>
                 {currentAnalysis.options.map((opt) => {
                   const isRec = opt.id === currentAnalysis.tiebreakerVerdict.recommendedOptionId;
+                  const isChosen = opt.id === currentAnalysis.chosenOptionId;
                   return (
                     <div
                       key={opt.id}
-                      className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold ${
-                        isRec
-                          ? 'border border-amber-300 bg-amber-50 text-amber-900'
-                          : 'border border-stone-200 bg-stone-50 text-stone-700'
+                      className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1 text-xs font-bold transition ${
+                        isChosen
+                          ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-sm'
+                          : isRec
+                          ? 'border border-violet-500/50 bg-[#28224c] text-violet-200'
+                          : 'border border-[#2e2a52] bg-[#17152b] text-[#9b97b6]'
                       }`}
                     >
-                      {isRec && <Award className="h-3 w-3 text-amber-600" />}
+                      {isChosen ? (
+                        <Check className="h-3 w-3 text-emerald-300" />
+                      ) : isRec ? (
+                        <Award className="h-3 w-3 text-fuchsia-300" />
+                      ) : null}
                       <span>{opt.name}</span>
                     </div>
                   );
@@ -317,83 +435,98 @@ export default function App() {
               </div>
             </div>
 
-            {/* Multi-Tab Navigation Controls */}
-            <div className="flex overflow-x-auto rounded-xl border border-stone-200 bg-white p-1 shadow-2xs">
+            {/* Multi-Tab Navigation Controls with Modern Flat Gradient Pills */}
+            <div className="flex overflow-x-auto rounded-xl border border-[#2b274e] bg-[#18162d] p-1 shadow-lg shadow-black/20" role="tablist">
               <button
                 type="button"
+                role="tab"
+                aria-selected={activeTab === 'verdict'}
                 onClick={() => setActiveTab('verdict')}
-                className={`flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-semibold sm:text-sm whitespace-nowrap transition ${
+                className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-bold whitespace-nowrap transition-all ${
                   activeTab === 'verdict'
-                    ? 'bg-amber-600 text-white shadow-2xs'
-                    : 'text-stone-600 hover:text-stone-900 hover:bg-stone-50'
+                    ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-md shadow-violet-950/40'
+                    : 'text-[#9b97b6] hover:text-white hover:bg-[#221f3d]'
                 }`}
               >
-                <Award className="h-4 w-4" />
+                <Award className="h-3.5 w-3.5" />
                 <span>{t.tabs.verdict}</span>
+                <span className="hidden sm:inline text-[10px] opacity-70">1</span>
               </button>
 
               <button
                 type="button"
+                role="tab"
+                aria-selected={activeTab === 'pros_cons'}
                 onClick={() => setActiveTab('pros_cons')}
-                className={`flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-semibold sm:text-sm whitespace-nowrap transition ${
+                className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-bold whitespace-nowrap transition-all ${
                   activeTab === 'pros_cons'
-                    ? 'bg-amber-600 text-white shadow-2xs'
-                    : 'text-stone-600 hover:text-stone-900 hover:bg-stone-50'
+                    ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-md shadow-violet-950/40'
+                    : 'text-[#9b97b6] hover:text-white hover:bg-[#221f3d]'
                 }`}
               >
-                <ThumbsUp className="h-4 w-4" />
+                <ThumbsUp className="h-3.5 w-3.5" />
                 <span>{t.tabs.prosCons}</span>
+                <span className="hidden sm:inline text-[10px] opacity-70">2</span>
               </button>
 
               <button
                 type="button"
+                role="tab"
+                aria-selected={activeTab === 'comparison'}
                 onClick={() => setActiveTab('comparison')}
-                className={`flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-semibold sm:text-sm whitespace-nowrap transition ${
+                className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-bold whitespace-nowrap transition-all ${
                   activeTab === 'comparison'
-                    ? 'bg-amber-600 text-white shadow-2xs'
-                    : 'text-stone-600 hover:text-stone-900 hover:bg-stone-50'
+                    ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-md shadow-violet-950/40'
+                    : 'text-[#9b97b6] hover:text-white hover:bg-[#221f3d]'
                 }`}
               >
-                <Table className="h-4 w-4" />
+                <Table className="h-3.5 w-3.5" />
                 <span>{t.tabs.comparison}</span>
+                <span className="hidden sm:inline text-[10px] opacity-70">3</span>
               </button>
 
               <button
                 type="button"
+                role="tab"
+                aria-selected={activeTab === 'swot'}
                 onClick={() => setActiveTab('swot')}
-                className={`flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-semibold sm:text-sm whitespace-nowrap transition ${
+                className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-bold whitespace-nowrap transition-all ${
                   activeTab === 'swot'
-                    ? 'bg-amber-600 text-white shadow-2xs'
-                    : 'text-stone-600 hover:text-stone-900 hover:bg-stone-50'
+                    ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-md shadow-violet-950/40'
+                    : 'text-[#9b97b6] hover:text-white hover:bg-[#221f3d]'
                 }`}
               >
-                <Layers className="h-4 w-4" />
+                <Layers className="h-3.5 w-3.5" />
                 <span>{t.tabs.swot}</span>
+                <span className="hidden sm:inline text-[10px] opacity-70">4</span>
               </button>
 
               <button
                 type="button"
+                role="tab"
+                aria-selected={activeTab === 'all'}
                 onClick={() => setActiveTab('all')}
-                className={`flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-semibold sm:text-sm whitespace-nowrap transition ${
+                className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-bold whitespace-nowrap transition-all ${
                   activeTab === 'all'
-                    ? 'bg-amber-600 text-white shadow-2xs'
-                    : 'text-stone-600 hover:text-stone-900 hover:bg-stone-50'
+                    ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-md shadow-violet-950/40'
+                    : 'text-[#9b97b6] hover:text-white hover:bg-[#221f3d]'
                 }`}
               >
-                <FileText className="h-4 w-4" />
+                <FileText className="h-3.5 w-3.5" />
                 <span>{t.tabs.all}</span>
+                <span className="hidden sm:inline text-[10px] opacity-70">5</span>
               </button>
             </div>
 
             {/* Dynamic Tab Views */}
-            <div className="space-y-8">
+            <div className="space-y-6">
               {(activeTab === 'verdict' || activeTab === 'all') && (
                 <section>
                   {activeTab === 'all' && (
-                    <div className="mb-3 flex items-center gap-2">
-                      <span className="font-serif text-lg font-bold text-stone-900">
+                    <div className="mb-2.5">
+                      <h3 className="font-display text-lg font-bold text-white">
                         1. {t.tabs.verdict}
-                      </span>
+                      </h3>
                     </div>
                   )}
                   <VerdictCard
@@ -406,12 +539,12 @@ export default function App() {
               )}
 
               {(activeTab === 'pros_cons' || activeTab === 'all') && (
-                <section className={activeTab === 'all' ? 'border-t border-stone-200 pt-8' : ''}>
+                <section className={activeTab === 'all' ? 'border-t border-[#292548] pt-6' : ''}>
                   {activeTab === 'all' && (
-                    <div className="mb-3 flex items-center gap-2">
-                      <span className="font-serif text-lg font-bold text-stone-900">
+                    <div className="mb-2.5">
+                      <h3 className="font-display text-lg font-bold text-white">
                         2. {t.tabs.prosCons}
-                      </span>
+                      </h3>
                     </div>
                   )}
                   <ProsConsView
@@ -424,12 +557,12 @@ export default function App() {
               )}
 
               {(activeTab === 'comparison' || activeTab === 'all') && (
-                <section className={activeTab === 'all' ? 'border-t border-stone-200 pt-8' : ''}>
+                <section className={activeTab === 'all' ? 'border-t border-[#292548] pt-6' : ''}>
                   {activeTab === 'all' && (
-                    <div className="mb-3 flex items-center gap-2">
-                      <span className="font-serif text-lg font-bold text-stone-900">
+                    <div className="mb-2.5">
+                      <h3 className="font-display text-lg font-bold text-white">
                         3. {t.tabs.comparison}
-                      </span>
+                      </h3>
                     </div>
                   )}
                   <ComparisonTableView
@@ -441,12 +574,12 @@ export default function App() {
               )}
 
               {(activeTab === 'swot' || activeTab === 'all') && (
-                <section className={activeTab === 'all' ? 'border-t border-stone-200 pt-8' : ''}>
+                <section className={activeTab === 'all' ? 'border-t border-[#292548] pt-6' : ''}>
                   {activeTab === 'all' && (
-                    <div className="mb-3 flex items-center gap-2">
-                      <span className="font-serif text-lg font-bold text-stone-900">
+                    <div className="mb-2.5">
+                      <h3 className="font-display text-lg font-bold text-white">
                         4. {t.tabs.swot}
-                      </span>
+                      </h3>
                     </div>
                   )}
                   <SwotView
@@ -458,7 +591,7 @@ export default function App() {
               )}
 
               {/* Follow-up Consultant AI Assistant */}
-              <section className="border-t border-stone-200 pt-6">
+              <section className="border-t border-[#292548] pt-6">
                 <FollowUpConsultant
                   analysis={currentAnalysis}
                   t={t}
@@ -470,6 +603,14 @@ export default function App() {
         )}
       </main>
 
+      {/* Ephemeral Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-5 right-5 z-50 flex items-center gap-2.5 rounded-xl border border-violet-500/40 bg-[#231f41] px-4 py-2.5 text-xs font-bold text-white shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <Check className="h-4 w-4 text-emerald-400" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
       {/* Decision History Modal */}
       <DecisionHistoryModal
         isOpen={isHistoryOpen}
@@ -477,6 +618,7 @@ export default function App() {
         history={history}
         onSelectDecision={(item) => {
           setCurrentAnalysis(item);
+          setIsEditingForm(false);
           setActiveTab('verdict');
         }}
         onDeleteDecision={handleDeleteDecision}
@@ -485,22 +627,17 @@ export default function App() {
         language={language}
       />
 
-      {/* Minimal Footer */}
-      <footer className="border-t border-stone-200 bg-stone-50 py-6 text-center text-xs text-stone-500">
-        <div className="mx-auto max-w-7xl px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5 font-medium text-stone-700">
-            <Scale className="h-4 w-4 text-amber-600" />
-            <span>The Tiebreaker</span>
-            <span>—</span>
-            <span className="text-stone-500">
+      {/* Minimalist Dark Footer */}
+      <footer className="border-t border-[#221f3f] bg-[#0e0d1c] py-5 text-center text-xs text-[#8e8aa8]">
+        <div className="mx-auto max-w-5xl px-4 flex items-center justify-center gap-2.5">
+          <div className="flex items-center gap-2 font-medium text-white">
+            <Scale className="h-4 w-4 text-violet-400" />
+            <span className="font-bold">The Tiebreaker</span>
+            <span className="text-[#3b3662]">•</span>
+            <span className="text-[#8e8aa8]">
               {language === 'es' ? 'Claridad Definitiva en Decisiones' : 'Definitive Decision Clarity'}
             </span>
           </div>
-          <p className="text-stone-400">
-            {language === 'es'
-              ? 'Potenciado por Gemini AI • Soporte bilingüe en Español e Inglés'
-              : 'Powered by Gemini AI • Bilingual support in English & Spanish'}
-          </p>
         </div>
       </footer>
     </div>

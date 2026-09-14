@@ -1,5 +1,18 @@
-import React, { useState } from 'react';
-import { Sparkles, Plus, Trash2, ArrowRight, ShieldCheck, Compass, Flame, HelpCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import {
+  Sparkles,
+  Plus,
+  Trash2,
+  ArrowRight,
+  ShieldCheck,
+  Compass,
+  Zap,
+  Sliders,
+  ChevronDown,
+  ChevronUp,
+  Loader2,
+  Check,
+} from 'lucide-react';
 import { TranslationStrings } from '../data/translations';
 import { PRESET_TEMPLATES } from '../data/presets';
 import { PresetTemplate } from '../types';
@@ -14,6 +27,12 @@ interface DecisionInputFormProps {
     riskTolerance: 'conservative' | 'balanced' | 'bold';
   }) => void;
   isLoading: boolean;
+  initialValues?: {
+    dilemma: string;
+    options: string[];
+    priorities: string[];
+    riskTolerance: 'conservative' | 'balanced' | 'bold';
+  } | null;
 }
 
 export const DecisionInputForm: React.FC<DecisionInputFormProps> = ({
@@ -21,17 +40,74 @@ export const DecisionInputForm: React.FC<DecisionInputFormProps> = ({
   language,
   onSubmit,
   isLoading,
+  initialValues,
 }) => {
-  const [dilemma, setDilemma] = useState('');
-  const [options, setOptions] = useState<string[]>(['', '']);
-  const [showOptions, setShowOptions] = useState(false);
-  const [priorities, setPriorities] = useState<string[]>([]);
+  const [dilemma, setDilemma] = useState(initialValues?.dilemma || '');
+  const [options, setOptions] = useState<string[]>(
+    initialValues?.options && initialValues.options.length >= 2
+      ? initialValues.options
+      : ['', '']
+  );
+  const [showOptions, setShowOptions] = useState(
+    Boolean(initialValues?.options && initialValues.options.some(Boolean))
+  );
+  const [priorities, setPriorities] = useState<string[]>(
+    initialValues?.priorities || []
+  );
   const [newPriority, setNewPriority] = useState('');
-  const [riskTolerance, setRiskTolerance] = useState<'conservative' | 'balanced' | 'bold'>('balanced');
+  const [riskTolerance, setRiskTolerance] = useState<'conservative' | 'balanced' | 'bold'>(
+    initialValues?.riskTolerance || 'balanced'
+  );
 
-  const defaultSuggestedPriorities = language === 'es'
-    ? ['Crecimiento Profesional', 'Tranquilidad Mental', 'Retorno Financiero', 'Tiempo con Familia', 'Flexibilidad', 'Seguridad a Largo Plazo']
-    : ['Career Growth', 'Peace of Mind', 'Financial Return', 'Family Time', 'Flexibility & Freedom', 'Long-term Security'];
+  // Progressive feedback step index during loading
+  const [loadingStepIdx, setLoadingStepIdx] = useState(0);
+
+  useEffect(() => {
+    if (!isLoading) {
+      setLoadingStepIdx(0);
+      return;
+    }
+    const interval = setInterval(() => {
+      setLoadingStepIdx((prev) => (prev + 1) % (t.analyzingSteps?.length || 4));
+    }, 2400);
+    return () => clearInterval(interval);
+  }, [isLoading, t.analyzingSteps]);
+
+  // Sync if initial values change
+  useEffect(() => {
+    if (initialValues) {
+      setDilemma(initialValues.dilemma || '');
+      if (initialValues.options && initialValues.options.length > 0) {
+        setOptions(initialValues.options);
+        setShowOptions(true);
+      }
+      if (initialValues.priorities) {
+        setPriorities(initialValues.priorities);
+      }
+      if (initialValues.riskTolerance) {
+        setRiskTolerance(initialValues.riskTolerance);
+      }
+    }
+  }, [initialValues]);
+
+  const defaultSuggestedPriorities =
+    language === 'es'
+      ? [
+          'Tranquilidad Mental',
+          'Crecimiento Profesional',
+          'Retorno Financiero',
+          'Tiempo con Familia',
+          'Flexibilidad & Libertad',
+          'Seguridad a Largo Plazo',
+        ]
+      : [
+          'Peace of Mind',
+          'Career Growth',
+          'Financial Return',
+          'Family Time',
+          'Flexibility & Freedom',
+          'Long-term Security',
+        ];
 
   const handleApplyPreset = (preset: PresetTemplate) => {
     if (language === 'es') {
@@ -67,8 +143,9 @@ export const DecisionInputForm: React.FC<DecisionInputFormProps> = ({
   const handleAddPriority = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && newPriority.trim()) {
       e.preventDefault();
-      if (!priorities.includes(newPriority.trim())) {
-        setPriorities([...priorities, newPriority.trim()]);
+      const trimmed = newPriority.trim();
+      if (!priorities.includes(trimmed)) {
+        setPriorities([...priorities, trimmed]);
       }
       setNewPriority('');
     }
@@ -84,7 +161,7 @@ export const DecisionInputForm: React.FC<DecisionInputFormProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!dilemma.trim()) return;
+    if (!dilemma.trim() || isLoading) return;
 
     const filteredOptions = options.map((o) => o.trim()).filter(Boolean);
     onSubmit({
@@ -96,25 +173,29 @@ export const DecisionInputForm: React.FC<DecisionInputFormProps> = ({
   };
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
-      {/* Intro Heading */}
-      <div className="mb-8 text-center">
-        <h1 className="font-serif text-3xl font-extrabold tracking-tight text-stone-900 sm:text-4xl md:text-5xl">
+    <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
+      {/* Title & Introduction */}
+      <div className="text-center mb-8">
+        <div className="inline-flex items-center gap-2 rounded-full border border-[#3b3464] bg-[#211d3c] px-3.5 py-1 text-xs font-semibold text-violet-300 shadow-sm mb-3">
+          <Sparkles className="h-3.5 w-3.5 text-fuchsia-400" />
+          <span>{language === 'es' ? 'Desempate guiado por IA' : 'AI-Powered Decision Engine'}</span>
+        </div>
+        <h1 className="font-display text-3xl font-extrabold tracking-tight text-white sm:text-4xl lg:text-5xl">
           {t.tagline}
         </h1>
-        <p className="mx-auto mt-3 max-w-2xl text-base leading-relaxed text-stone-600 sm:text-lg">
+        <p className="mx-auto mt-3 max-w-xl text-xs sm:text-sm text-[#9b97b6] leading-relaxed">
           {t.subtitle}
         </p>
       </div>
 
-      {/* Preset Scenarios Carousel */}
-      <div className="mb-8 rounded-2xl border border-stone-200/80 bg-stone-100/60 p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <span className="text-xs font-semibold uppercase tracking-wider text-stone-500">
+      {/* Preset Inspiration Pills */}
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-2.5">
+          <span className="text-[11px] font-bold text-[#807b9f] uppercase tracking-wider">
             {t.tryExample}
           </span>
         </div>
-        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+        <div className="flex flex-wrap gap-2">
           {PRESET_TEMPLATES.map((preset) => {
             const title = language === 'es' ? preset.titleEs : preset.titleEn;
             return (
@@ -123,75 +204,79 @@ export const DecisionInputForm: React.FC<DecisionInputFormProps> = ({
                 id={`preset-btn-${preset.id}`}
                 type="button"
                 onClick={() => handleApplyPreset(preset)}
-                className="group flex items-start gap-2.5 rounded-xl border border-stone-200/90 bg-white p-3 text-left shadow-2xs transition hover:border-amber-400 hover:shadow-sm"
+                className="rounded-xl border border-[#2b274d] bg-[#1c1a32] px-3 py-1.5 text-xs font-medium text-[#cfcce2] transition hover:border-violet-500/50 hover:bg-[#252243] hover:text-white text-left"
               >
-                <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-stone-100 text-stone-600 group-hover:bg-amber-100 group-hover:text-amber-800">
-                  <Sparkles className="h-3.5 w-3.5" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-semibold text-stone-900 group-hover:text-amber-800">
-                    {title}
-                  </p>
-                  <p className="mt-0.5 line-clamp-1 text-[11px] text-stone-500">
-                    {language === 'es' ? preset.dilemmaEs : preset.dilemmaEn}
-                  </p>
-                </div>
+                <span>{title}</span>
               </button>
             );
           })}
         </div>
       </div>
 
-      {/* Main Form Card */}
+      {/* Main Form Container: Modern Flat Dark Surface */}
       <form
         id="decision-input-form"
         onSubmit={handleSubmit}
-        className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm sm:p-8"
+        className="rounded-2xl border border-[#2c284f] bg-[#1e1c35] p-5 sm:p-7 space-y-6 shadow-xl shadow-black/20"
       >
-        {/* Dilemma Textarea */}
+        {/* Dilemma Input */}
         <div className="space-y-2">
-          <label
-            htmlFor="dilemma-input"
-            className="flex items-center gap-2 text-sm font-bold tracking-tight text-stone-900 sm:text-base"
-          >
-            <span>{t.dilemmaLabel}</span>
-            <span className="text-xs font-normal text-rose-500">*</span>
-          </label>
+          <div className="flex items-center justify-between">
+            <label
+              htmlFor="dilemma-input"
+              className="text-sm font-bold text-white"
+            >
+              {t.dilemmaLabel}
+            </label>
+            <span className="text-[11px] text-[#787396]">
+              {dilemma.length} {language === 'es' ? 'caracteres' : 'chars'}
+            </span>
+          </div>
           <textarea
             id="dilemma-input"
-            rows={4}
+            rows={3}
             value={dilemma}
             onChange={(e) => setDilemma(e.target.value)}
             placeholder={t.dilemmaPlaceholder}
-            className="w-full rounded-xl border border-stone-300 p-3.5 text-stone-900 placeholder:text-stone-400 focus:border-amber-600 focus:outline-hidden focus:ring-2 focus:ring-amber-500/20 text-sm sm:text-base leading-relaxed"
+            className="w-full rounded-xl border border-[#2e2a53] bg-[#151429] p-3.5 text-sm sm:text-base text-white placeholder:text-[#5f5a81] transition focus:border-violet-500 focus:bg-[#181630] focus:outline-none focus:ring-2 focus:ring-violet-500/20"
             required
+            disabled={isLoading}
           />
         </div>
 
-        {/* Optional Specific Options Toggle */}
-        <div className="mt-6 border-t border-stone-100 pt-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <span className="text-sm font-semibold text-stone-800">
-                {t.optionsLabel}
-              </span>
-              <p className="text-xs text-stone-500">{t.optionsHint}</p>
-            </div>
-            <button
-              id="toggle-options-btn"
-              type="button"
-              onClick={() => setShowOptions(!showOptions)}
-              className="text-xs font-semibold text-amber-700 hover:text-amber-800 underline underline-offset-4"
-            >
-              {showOptions ? (language === 'es' ? 'Ocultar opciones manuales' : 'Hide custom options') : (language === 'es' ? 'Definir opciones manuales' : 'Define custom options')}
-            </button>
-          </div>
+        {/* Collapsible Options Section */}
+        <div className="border-t border-[#2a264a] pt-4">
+          <button
+            id="toggle-options-btn"
+            type="button"
+            onClick={() => setShowOptions(!showOptions)}
+            className="flex w-full items-center justify-between text-left text-xs font-bold text-[#b4b0cd] hover:text-white py-1 transition"
+          >
+            <span className="flex items-center gap-2">
+              <Sliders className="h-4 w-4 text-violet-400" />
+              <span>{t.optionsLabel}</span>
+            </span>
+            <span className="flex items-center gap-1 text-[11px] text-[#807a9f] font-normal">
+              {showOptions ? (
+                <>
+                  <span>{language === 'es' ? 'Contraer' : 'Collapse'}</span>
+                  <ChevronUp className="h-3 w-3" />
+                </>
+              ) : (
+                <>
+                  <span>{language === 'es' ? 'Especificar opciones' : 'Define paths'}</span>
+                  <ChevronDown className="h-3 w-3" />
+                </>
+              )}
+            </span>
+          </button>
 
           {showOptions && (
-            <div className="mt-4 space-y-3">
+            <div className="mt-3.5 space-y-2.5">
+              <p className="text-[11px] text-[#807a9f]">{t.optionsHint}</p>
               {options.map((opt, idx) => (
-                <div key={idx} className="flex items-center gap-2">
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-stone-100 text-xs font-bold text-stone-600">
+                <div key={idx} className="flex items-center gap-2.5">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#28244b] text-xs font-bold text-violet-300">
                     {idx + 1}
                   </span>
                   <input
@@ -202,16 +287,18 @@ export const DecisionInputForm: React.FC<DecisionInputFormProps> = ({
                     placeholder={
                       language === 'es'
                         ? `Opción ${idx + 1} (ej. Opción A)`
-                        : `Option ${idx + 1} (e.g., Option A)`
+                        : `Option ${idx + 1} (e.g., Path A)`
                     }
-                    className="flex-1 rounded-lg border border-stone-300 px-3 py-2 text-xs sm:text-sm text-stone-900 focus:border-amber-600 focus:outline-hidden focus:ring-1 focus:ring-amber-500"
+                    disabled={isLoading}
+                    className="flex-1 rounded-xl border border-[#2e2a53] bg-[#151429] px-3.5 py-2 text-xs sm:text-sm text-white placeholder:text-[#5f5a81] focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500/20"
                   />
                   {options.length > 2 && (
                     <button
                       id={`remove-option-btn-${idx}`}
                       type="button"
                       onClick={() => handleRemoveOption(idx)}
-                      className="rounded-lg p-2 text-stone-400 hover:bg-stone-100 hover:text-rose-600"
+                      disabled={isLoading}
+                      className="rounded-lg p-2 text-[#787396] hover:text-rose-400 hover:bg-[#29254b] transition"
                       title={t.removeOption}
                     >
                       <Trash2 className="h-4 w-4" />
@@ -224,22 +311,23 @@ export const DecisionInputForm: React.FC<DecisionInputFormProps> = ({
                   id="add-option-btn"
                   type="button"
                   onClick={handleAddOption}
-                  className="flex items-center gap-1.5 text-xs font-medium text-amber-700 hover:text-amber-800"
+                  disabled={isLoading}
+                  className="flex items-center gap-1.5 text-xs font-bold text-violet-400 hover:text-violet-300 pt-1 transition"
                 >
                   <Plus className="h-3.5 w-3.5" />
-                  {t.addOption}
+                  <span>{t.addOption}</span>
                 </button>
               )}
             </div>
           )}
         </div>
 
-        {/* Priorities Section */}
-        <div className="mt-6 border-t border-stone-100 pt-5">
-          <label className="text-sm font-semibold text-stone-800">
+        {/* Core Priorities Section */}
+        <div className="border-t border-[#2a264a] pt-4">
+          <label className="block text-xs font-bold text-white mb-2">
             {t.prioritiesLabel}
           </label>
-          <div className="mt-2.5 flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-2">
             {defaultSuggestedPriorities.map((item) => {
               const isSelected = priorities.includes(item);
               return (
@@ -247,13 +335,14 @@ export const DecisionInputForm: React.FC<DecisionInputFormProps> = ({
                   key={item}
                   type="button"
                   onClick={() => handleTogglePriority(item)}
-                  className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                  disabled={isLoading}
+                  className={`rounded-xl px-3 py-1.5 text-xs font-medium transition-all ${
                     isSelected
-                      ? 'bg-amber-600 text-white'
-                      : 'border border-stone-200 bg-stone-50 text-stone-600 hover:bg-stone-100'
+                      ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-md shadow-violet-950/30'
+                      : 'border border-[#2e2a53] bg-[#17152b] text-[#a5a1c2] hover:border-violet-500/40 hover:text-white'
                   }`}
                 >
-                  {isSelected && '✓ '}
+                  {isSelected && <Check className="inline h-3 w-3 mr-1" />}
                   {item}
                 </button>
               );
@@ -267,39 +356,37 @@ export const DecisionInputForm: React.FC<DecisionInputFormProps> = ({
               value={newPriority}
               onChange={(e) => setNewPriority(e.target.value)}
               onKeyDown={handleAddPriority}
+              disabled={isLoading}
               placeholder={t.addPriorityPlaceholder}
-              className="w-full rounded-lg border border-stone-200 bg-stone-50/70 px-3 py-2 text-xs text-stone-800 placeholder:text-stone-400 focus:border-amber-600 focus:bg-white focus:outline-hidden focus:ring-1 focus:ring-amber-500 sm:text-sm"
+              className="w-full rounded-xl border border-[#2e2a53] bg-[#151429] px-3.5 py-2 text-xs text-white placeholder:text-[#5f5a81] focus:border-violet-500 focus:outline-none"
             />
           </div>
         </div>
 
-        {/* Risk Appetite Selector */}
-        <div className="mt-6 border-t border-stone-100 pt-5">
-          <label className="text-sm font-semibold text-stone-800">
+        {/* Risk Appetite Segmented Cards */}
+        <div className="border-t border-[#2a264a] pt-4">
+          <label className="block text-xs font-bold text-white mb-2.5">
             {t.riskToleranceLabel}
           </label>
-          <div className="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3" role="radiogroup">
             <button
               id="risk-btn-conservative"
               type="button"
               onClick={() => setRiskTolerance('conservative')}
-              className={`flex items-center gap-2.5 rounded-xl border p-3 text-left transition ${
+              disabled={isLoading}
+              className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${
                 riskTolerance === 'conservative'
-                  ? 'border-amber-600 bg-amber-50/60 ring-1 ring-amber-600'
-                  : 'border-stone-200 hover:bg-stone-50'
+                  ? 'border-violet-500 bg-[#272349] text-white shadow-md shadow-violet-950/40 ring-1 ring-violet-500/30'
+                  : 'border-[#2c284f] bg-[#17152b] text-[#9b97b6] hover:border-[#3d3768] hover:text-white'
               }`}
             >
-              <ShieldCheck
-                className={`h-4 w-4 shrink-0 ${
-                  riskTolerance === 'conservative' ? 'text-amber-700' : 'text-stone-400'
-                }`}
-              />
-              <div>
-                <span className="block text-xs font-bold text-stone-900">
+              <ShieldCheck className={`h-5 w-5 shrink-0 ${riskTolerance === 'conservative' ? 'text-violet-400' : 'text-[#6f6a91]'}`} />
+              <div className="min-w-0">
+                <span className="block text-xs font-bold">
                   {language === 'es' ? 'Conservador' : 'Conservative'}
                 </span>
-                <span className="block text-[11px] text-stone-500">
-                  {language === 'es' ? 'Minimizar riesgos y asegurar' : 'Safety, security & downside protection'}
+                <span className="block text-[10px] truncate text-[#8883a8]">
+                  {language === 'es' ? 'Seguridad y estabilidad' : 'Downside safety first'}
                 </span>
               </div>
             </button>
@@ -308,23 +395,20 @@ export const DecisionInputForm: React.FC<DecisionInputFormProps> = ({
               id="risk-btn-balanced"
               type="button"
               onClick={() => setRiskTolerance('balanced')}
-              className={`flex items-center gap-2.5 rounded-xl border p-3 text-left transition ${
+              disabled={isLoading}
+              className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${
                 riskTolerance === 'balanced'
-                  ? 'border-amber-600 bg-amber-50/60 ring-1 ring-amber-600'
-                  : 'border-stone-200 hover:bg-stone-50'
+                  ? 'border-violet-500 bg-[#272349] text-white shadow-md shadow-violet-950/40 ring-1 ring-violet-500/30'
+                  : 'border-[#2c284f] bg-[#17152b] text-[#9b97b6] hover:border-[#3d3768] hover:text-white'
               }`}
             >
-              <Compass
-                className={`h-4 w-4 shrink-0 ${
-                  riskTolerance === 'balanced' ? 'text-amber-700' : 'text-stone-400'
-                }`}
-              />
-              <div>
-                <span className="block text-xs font-bold text-stone-900">
+              <Compass className={`h-5 w-5 shrink-0 ${riskTolerance === 'balanced' ? 'text-fuchsia-400' : 'text-[#6f6a91]'}`} />
+              <div className="min-w-0">
+                <span className="block text-xs font-bold">
                   {language === 'es' ? 'Equilibrado' : 'Balanced'}
                 </span>
-                <span className="block text-[11px] text-stone-500">
-                  {language === 'es' ? 'Riesgo calculado e inteligente' : 'Pragmatic, measured trade-offs'}
+                <span className="block text-[10px] truncate text-[#8883a8]">
+                  {language === 'es' ? 'Riesgo calculado' : 'Calculated trade-offs'}
                 </span>
               </div>
             </button>
@@ -333,54 +417,57 @@ export const DecisionInputForm: React.FC<DecisionInputFormProps> = ({
               id="risk-btn-bold"
               type="button"
               onClick={() => setRiskTolerance('bold')}
-              className={`flex items-center gap-2.5 rounded-xl border p-3 text-left transition ${
+              disabled={isLoading}
+              className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${
                 riskTolerance === 'bold'
-                  ? 'border-amber-600 bg-amber-50/60 ring-1 ring-amber-600'
-                  : 'border-stone-200 hover:bg-stone-50'
+                  ? 'border-violet-500 bg-[#272349] text-white shadow-md shadow-violet-950/40 ring-1 ring-violet-500/30'
+                  : 'border-[#2c284f] bg-[#17152b] text-[#9b97b6] hover:border-[#3d3768] hover:text-white'
               }`}
             >
-              <Flame
-                className={`h-4 w-4 shrink-0 ${
-                  riskTolerance === 'bold' ? 'text-amber-700' : 'text-stone-400'
-                }`}
-              />
-              <div>
-                <span className="block text-xs font-bold text-stone-900">
+              <Zap className={`h-5 w-5 shrink-0 ${riskTolerance === 'bold' ? 'text-pink-400' : 'text-[#6f6a91]'}`} />
+              <div className="min-w-0">
+                <span className="block text-xs font-bold">
                   {language === 'es' ? 'Audaz' : 'Bold'}
                 </span>
-                <span className="block text-[11px] text-stone-500">
-                  {language === 'es' ? 'Máximo potencial y upside' : 'Max upside, rapid growth & agility'}
+                <span className="block text-[10px] truncate text-[#8883a8]">
+                  {language === 'es' ? 'Máximo upside & avance' : 'Max upside & growth'}
                 </span>
               </div>
             </button>
           </div>
         </div>
 
-        {/* Submit Action */}
-        <div className="mt-8 border-t border-stone-100 pt-6">
-          <button
-            id="submit-decision-btn"
-            type="submit"
-            disabled={isLoading || !dilemma.trim()}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-600 py-3.5 px-6 font-semibold text-white shadow-sm transition hover:bg-amber-700 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 disabled:cursor-not-allowed disabled:opacity-50 text-sm sm:text-base"
-          >
-            {isLoading ? (
-              <div className="flex items-center gap-2.5">
-                <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+        {/* Submit & Progressive Feedback */}
+        <div className="pt-2">
+          {isLoading ? (
+            <div className="rounded-xl border border-[#352f5c] bg-[#19172f] p-4 text-center space-y-2.5">
+              <div className="flex items-center justify-center gap-2 text-white font-bold text-sm">
+                <Loader2 className="h-4 w-4 animate-spin text-fuchsia-400" />
                 <span>{t.analyzing}</span>
               </div>
-            ) : (
-              <>
-                <Sparkles className="h-5 w-5" />
-                <span>{t.breakTheTie}</span>
-                <ArrowRight className="h-4 w-4" />
-              </>
-            )}
-          </button>
-          {isLoading && (
-            <p className="mt-2 text-center text-xs text-stone-500">
-              {t.analyzingSub}
-            </p>
+              <p className="text-xs text-[#9b97b6] transition-all duration-300">
+                {t.analyzingSteps?.[loadingStepIdx] || t.analyzingSub}
+              </p>
+              {/* Vibrant violet to fuchsia progress bar */}
+              <div className="mx-auto mt-2 h-1.5 w-56 overflow-hidden rounded-full bg-[#272347]">
+                <div
+                  className="h-full bg-gradient-to-r from-violet-500 via-purple-500 to-fuchsia-500 transition-all duration-500"
+                  style={{
+                    width: `${((loadingStepIdx + 1) / (t.analyzingSteps?.length || 4)) * 100}%`,
+                  }}
+                />
+              </div>
+            </div>
+          ) : (
+            <button
+              id="submit-decision-btn"
+              type="submit"
+              disabled={!dilemma.trim() || isLoading}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-500 py-3.5 text-sm font-bold text-white shadow-lg shadow-violet-950/50 transition hover:opacity-95 disabled:opacity-30 active:scale-99"
+            >
+              <span>{t.breakTheTie}</span>
+              <ArrowRight className="h-4 w-4 text-white" />
+            </button>
           )}
         </div>
       </form>
